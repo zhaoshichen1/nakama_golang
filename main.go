@@ -4,7 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
-	"errors"
+	"github.com/pkg/errors"
 
 	"github.com/heroiclabs/nakama-common/api"
 	"github.com/heroiclabs/nakama-common/runtime"
@@ -62,6 +62,7 @@ func Hello(ctx context.Context, logger runtime.Logger, db *sql.DB, nk runtime.Na
 	}
 	val:=map[string]interface{}{}
 	if err:=json.Unmarshal([]byte(payload),&val);err!=nil{
+		return "",errors.Wrapf(err,"Hello json.Unmarshal")
 	}
 	logger.Info("val:%+v",val)
 	logger.Info("userid:%v", userId)
@@ -71,7 +72,7 @@ func Hello(ctx context.Context, logger runtime.Logger, db *sql.DB, nk runtime.Na
 	}
 	if err := nk.NotificationSend(ctx, userId, "233", map[string]interface{}{"hello": payload}, 1, "", false); err != nil {
 		logger.Error("NotificationSend err:%v", err)
-		return "", err
+		return "", errors.Wrapf(err,"Hello NotificationSend userid:%v",userId)
 	}
 	return "Success", nil
 }
