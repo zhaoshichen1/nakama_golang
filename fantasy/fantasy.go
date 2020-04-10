@@ -17,7 +17,7 @@ type Blades []Blade
 
 type World struct {
 	Heroine map[string]Gloves
-	Hero Blades
+	Hero    Blades
 }
 
 func New() *World {
@@ -30,8 +30,8 @@ func (v *World) RegistGlove(hash string, handle ...Glove) {
 	v.Heroine[hash] = append(v.Heroine[hash], handle...)
 }
 
-func (v *World) RegistBlade(handle ...Blade){
-	v.Hero=append(v.Hero,handle...)
+func (v *World) RegistBlade(handle ...Blade) {
+	v.Hero = append(v.Hero, handle...)
 }
 
 func (v *World) Init(initializer runtime.Initializer) error {
@@ -47,12 +47,12 @@ func (v *World) Init(initializer runtime.Initializer) error {
 }
 
 type Claude struct {
-	Ctx context.Context
+	Ctx    context.Context
 	Logger runtime.Logger
-	Evt *api.Event
+	Evt    *api.Event
 	// my
-	Blades Blades
-	isAbort  bool
+	Blades  Blades
+	isAbort bool
 }
 
 func (c *Claude) Abort() {
@@ -74,6 +74,7 @@ type Tifa struct {
 
 func (c *Tifa) Bind(v interface{}) error {
 	if err := json.Unmarshal([]byte(c.request), v); err != nil {
+		c.err = err
 		return err
 	}
 	return nil
@@ -113,16 +114,16 @@ func heroine(handles Gloves) func(ctx context.Context, logger runtime.Logger, db
 	}
 }
 
-func hero(blades Blades)func(ctx context.Context, logger runtime.Logger, evt *api.Event){
-	claude:=&Claude{}
-	claude.Blades=blades
+func hero(blades Blades) func(ctx context.Context, logger runtime.Logger, evt *api.Event) {
+	claude := &Claude{}
+	claude.Blades = blades
 	return func(ctx context.Context, logger runtime.Logger, evt *api.Event) {
-		claude.Ctx=ctx
-		claude.Logger=logger
-		claude.Evt=evt
-		for i:=range claude.Blades{
+		claude.Ctx = ctx
+		claude.Logger = logger
+		claude.Evt = evt
+		for i := range claude.Blades {
 			claude.Blades[i](claude)
-			if claude.isAbort{
+			if claude.isAbort {
 				return
 			}
 		}

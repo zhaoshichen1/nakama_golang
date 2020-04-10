@@ -15,10 +15,10 @@ func helloHandle(t *fantasy.Tifa) {
 	t.Json(res, err)
 }
 
-func helloEvent(c *fantasy.Claude){
+func helloEvent(c *fantasy.Claude) {
 
 }
 
-func worldEvent(c *fantasy.Claude){
+func worldEvent(c *fantasy.Claude) {
 
 }

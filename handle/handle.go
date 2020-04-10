@@ -8,7 +8,7 @@ import (
 )
 
 var (
-	ser = service.New()
+	ser   = service.New()
 	world = fantasy.New()
 )
 
@@ -16,7 +16,7 @@ func rpc() {
 	// todo
 	world.RegistGlove("hello", helloHandle)
 
-	world.RegistBlade(helloEvent,worldEvent)
+	world.RegistBlade(helloEvent, worldEvent)
 }
 
 func Init(initializer runtime.Initializer) error {

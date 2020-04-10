@@ -26,7 +26,7 @@ type NotifyCommon struct {
 	runtime.NotificationSend
 }
 
-func (v *NotifyCommon)Subject()string{
+func (v *NotifyCommon) Subject() string {
 	return v.NotificationSend.Subject
 }
 
