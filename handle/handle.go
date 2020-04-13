@@ -24,7 +24,7 @@ var (
 func rpc() {
 	// todo
 
-	world.RegistGlove("hello", helloHandle)
+	world.RegistGlove("hello", helloHandle) // 测试接口
 	world.RegistGlove("match", matchHandle)
 	world.RegistGlove("match/ready", matchReady)
 	world.RegistGlove("game/tick", gameTick)

@@ -113,14 +113,14 @@ func (s *Service) match() {
 	player := []string{}
 	count := 0
 	for k, v := range s.Source {
-		if count > 5 {
+		if count > model.MatchMinPlayer {
 			break
 		}
 		s.logger.Info("match :%v=>%v", k, v)
 		player = append(player, v)
 		count++
 	}
-	if len(player) < 5 {
+	if len(player) < model.MatchMinPlayer {
 		return
 	}
 	matchId, err := s.nk.MatchCreate(s.ctx, s.Topic, s.defaultParam)
@@ -141,7 +141,7 @@ func (s *Service) match() {
 	count = 0
 	for k, _ := range s.Source {
 		count++
-		if count > 5 {
+		if count > model.MatchMinPlayer {
 			break
 		}
 		delete(s.Source, k)
@@ -163,7 +163,7 @@ func (s *Service) match() {
 
 func (s *Service) Start(mat *model.Match) {
 	player := []string{}
-	for id, _ := range mat.Players {
+	for id := range mat.Players {
 		player = append(player, id)
 	}
 	info := map[string]interface{}{

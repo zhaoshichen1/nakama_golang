@@ -3,6 +3,7 @@ package model
 const (
 	GameStream      = 10
 	ConfirmDeadline = 30 // 确认时间30s
+	MatchMinPlayer  = 2
 )
 
 type Match struct {

@@ -4,6 +4,7 @@ import "nakama-golang/model"
 
 type ReqMatchJoin struct {
 	Aid   int64  `json:"aid"`
+	Mid   int64  `json:"mid"`
 	Topic string `json:"topic"`
 }
 
