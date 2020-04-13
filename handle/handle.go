@@ -3,6 +3,7 @@ package handle
 import (
 	"context"
 	"database/sql"
+	"math/rand"
 	"time"
 
 	"nakama-golang/fantasy"
@@ -28,11 +29,13 @@ func rpc() {
 	world.RegistGlove("hello", helloHandle)
 	world.RegistGlove("match", matchHandle)
 	world.RegistGlove("match/ready", matchReady)
+	world.RegistGlove("game/tick",gameTick)
 
 	world.RegistBlade(worldEvent)
 }
 
 func initService(ctx context.Context, logger runtime.Logger, db *sql.DB, nk runtime.NakamaModule) {
+	rand.Seed(time.Now().Unix())
 	ser = service.New()
 	mat = match.New(ctx, logger, db, nk, "hello")
 	gam = game.New(ctx, logger, db, nk)

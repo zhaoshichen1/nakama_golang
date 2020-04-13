@@ -1,5 +1,7 @@
 package protocol
 
+import "nakama-golang/model"
+
 type ReqMatchJoin struct {
 	Topic string `json:"topic"`
 }
@@ -16,4 +18,9 @@ type ResMatchJoin struct {
 type ReqMatchReady struct {
 	Topic   string `json:"topic"`
 	MatchId string `json:"match_id"`
+}
+
+type ReqGameTick struct {
+	CurTick int64
+	Frame *model.GamePlayFrame
 }

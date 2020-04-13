@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"math/rand"
 	"time"
 
 	"github.com/heroiclabs/nakama-common/runtime"
@@ -83,6 +84,7 @@ func (s *Service) initGame() {
 			Persistent: false,
 		}
 		if ok, err := s.Nk.StreamUserJoin(model.GameStream, s.match.MatchId, "", "", id, sea, false, false, ""); err != nil || !ok {
+			s.Logger.Error("join failed err:%+v",err)
 			return
 		}
 		msgs = append(msgs, tmp)
@@ -113,7 +115,22 @@ func (s *Service)startGame(){
 }
 
 func (s *Service)finishGame(){
-
+	msgs := []*runtime.NotificationSend{}
+	for id, _ := range s.match.Players {
+		tmp := &runtime.NotificationSend{
+			UserID:     id,
+			Subject:    "game_finish",
+			Content:    nil,
+			Code:       0,
+			Sender:     "",
+			Persistent: false,
+		}
+		msgs = append(msgs, tmp)
+	}
+	if err := s.Nk.NotificationsSend(s.Ctx, msgs); err != nil {
+		s.Logger.Error("finish_game err:%+v", err)
+		return
+	}
 }
 func (s *Service)isFinish()bool{
 	return s.curTick>=100
@@ -160,6 +177,8 @@ func (s *Service)stream(){
 }
 
 func (s *Service)process(msg *model.GameMsg){
+	// todo point
+	msg.Point=rand.Int63()%50+50
 	s.PlayerTick[msg.UserId][s.curTick]=msg.Data
 	s.TimeTick[s.curTick][msg.UserId]=msg.Data
 }

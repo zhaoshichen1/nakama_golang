@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 
 	"github.com/heroiclabs/nakama-common/api"
 	"nakama-golang/model/event"
@@ -48,4 +49,18 @@ func (s *Service) MatchReady(ctx context.Context, logger runtime.Logger, db *sql
 		return nil, err
 	}
 	return nil, nil
+}
+
+func (s *Service)GameTick(ctx context.Context,logger runtime.Logger,db *sql.DB,nk runtime.NakamaModule,req *protocol.ReqGameTick)(v interface{},err error){
+	jstr,_:=json.Marshal(req.Frame)
+	if err:=nk.Event(ctx,&api.Event{
+		Name:                 event.EventGameRun.String(),
+		Properties: map[string]string{
+			"data":string(jstr),
+		},
+		External:             false,
+	});err!=nil{
+			return nil,err
+	}
+	return nil,nil
 }
