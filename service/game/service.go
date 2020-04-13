@@ -202,9 +202,11 @@ func (s *Service)finishGame(){
 		return
 	}
 }
+
 func (s *Service)isFinish()bool{
 	return s.curTick>=100
 }
+
 func (s *Service)finish(){
 	if err:=s.Nk.StreamClose(model.GameStream,s.match.MatchId,"","",);err!=nil{
 		s.Logger.Error("finish StreamClose err:%+v",err)
@@ -219,7 +221,7 @@ func (s *Service)run(){
 	for{
 		select {
 		case <-ticker.C:
-			// todo send to client
+			s.stream()
 			s.curTick++
 			if s.isFinish(){
 				s.finish()
