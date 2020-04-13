@@ -26,11 +26,7 @@ func New(ctx context.Context, logger runtime.Logger, db *sql.DB, nk runtime.Naka
 }
 
 func (s *Service) Start(match *model.Match) {
-	s.initGame(match)
-}
-
-func (s *Service) initGame(match *model.Match) {
-	msgs := []*runtime.NotificationSend{}
+	var msgs []*runtime.NotificationSend
 	for i := range match.Players {
 		tmp := &runtime.NotificationSend{
 			UserID:     match.Players[i],
