@@ -9,7 +9,7 @@ const (
 type Match struct {
 	Aid     int64
 	MatchId string
-	Players map[string]string
+	Players map[string]string // key=userID, value=sessionID
 }
 
 type PlayerRealTime struct {
