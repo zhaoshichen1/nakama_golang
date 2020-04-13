@@ -2,6 +2,6 @@ package code
 
 import "github.com/pkg/errors"
 
-var(
+var (
 	RequestErr = errors.New("request error")
 )

@@ -16,24 +16,23 @@ func helloHandle(t *fantasy.Tifa) {
 	t.Json(ser.Hello(t.Ctx, t.Logger, t.Db, t.Nk, req))
 }
 
-func matchHandle(t *fantasy.Tifa){
-	req:=&protocol.ReqMatchJoin{}
-	if err:=t.Bind(req);err!=nil{
+func matchHandle(t *fantasy.Tifa) {
+	req := &protocol.ReqMatchJoin{}
+	if err := t.Bind(req); err != nil {
 		t.Abort()
 		return
 	}
-	t.Json(ser.MatchJoin(t.Ctx,t.Logger, t.Db,t.Nk,req))
+	t.Json(ser.MatchJoin(t.Ctx, t.Logger, t.Db, t.Nk, req))
 }
 
-func matchReady(t *fantasy.Tifa){
-	req:=&protocol.ReqMatchReady{}
-	if err:=t.Bind(req);err!=nil{
+func matchReady(t *fantasy.Tifa) {
+	req := &protocol.ReqMatchReady{}
+	if err := t.Bind(req); err != nil {
 		t.Abort()
 		return
 	}
-	t.Json(ser.MatchReady(t.Ctx,t.Logger,t.Db,t.Nk,req))
+	t.Json(ser.MatchReady(t.Ctx, t.Logger, t.Db, t.Nk, req))
 }
-
 
 func worldEvent(c *fantasy.Claude) {
 	switch c.Event() {
@@ -45,7 +44,7 @@ func worldEvent(c *fantasy.Claude) {
 		}
 		mat.AddPlayer(userId)
 	case event.EventMatchReady:
-		info:=c.Evt.Properties
+		info := c.Evt.Properties
 		userId, ok := c.Ctx.Value(runtime.RUNTIME_CTX_USER_ID).(string)
 		if !ok {
 			// User ID not found in the context.
@@ -56,7 +55,6 @@ func worldEvent(c *fantasy.Claude) {
 			// If session ID is not found, RPC was not called over a connected socket.
 			return
 		}
-		mat.ReadyMatch(info["match_id"],userId,sessionID)
+		mat.ReadyMatch(info["match_id"], userId, sessionID)
 	}
 }
-
