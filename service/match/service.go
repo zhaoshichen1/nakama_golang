@@ -129,8 +129,8 @@ func (s *Service) match() {
 		return
 	}
 	info := map[string]interface{}{
-		"players": player,
-		"matchId": matchId,
+		"players":  player,
+		"match_id": matchId,
 	}
 	for _, v := range player {
 		if err := s.nk.NotificationSend(s.ctx, v, "match", info, 0, "", false); err != nil {
@@ -168,7 +168,7 @@ func (s *Service) Start(mat *model.Match) {
 	}
 	info := map[string]interface{}{
 		"players":  player,
-		"matchId":  mat.MatchId,
+		"match_id": mat.MatchId,
 		"deadline": model.ConfirmDeadline,
 	}
 	for v, _ := range mat.Players {
