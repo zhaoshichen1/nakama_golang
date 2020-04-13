@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"math/rand"
+	"sync"
 	"time"
 
 	"github.com/heroiclabs/nakama-common/runtime"
@@ -18,12 +19,70 @@ const(
 	Running = Status("running")
 	Finish = Status("finish")
 )
+
+type Group struct {
+	sync.Mutex
+	group map[string]*Service
+	Ctx    context.Context
+	Logger runtime.Logger
+	Db     *sql.DB
+	Nk     runtime.NakamaModule
+	closeChan chan string
+}
+
+func NewGroup(ctx context.Context, logger runtime.Logger, db *sql.DB, nk runtime.NakamaModule)*Group{
+	g:=&Group{
+		group: map[string]*Service{},
+		Mutex:sync.Mutex{},
+		Ctx:    ctx,
+		Logger: logger,
+		Db:     db,
+		Nk:     nk,
+		closeChan:make(chan string,1024*64),
+	}
+	return g
+}
+func (g *Group)Start(match *model.Match){
+	g.Lock()
+	defer g.Unlock()
+	s:=New(g.Ctx,g.Logger,g.Db,g.Nk,match, func() {
+		g.closeChan<-match.MatchId
+	})
+	if _,exist:=g.group[match.MatchId];!exist{
+		g.group[match.MatchId]=s
+	}
+	s.Start(match)
+}
+
+func (g *Group)Tick(){
+	for{
+		select {
+		case matchId,ok:=<-g.closeChan:
+			if !ok {
+				return
+			}
+			delete(g.group, matchId)
+		}
+	}
+}
+
+func (g *Group)Run(msg *model.GameMsg){
+	g.Lock()
+	defer g.Unlock()
+	if _,exist:=g.group[msg.MatchId];exist {
+		g.group[msg.MatchId].Run(msg)
+	}
+}
+
 type Service struct {
+	Aid int64
 	Ctx    context.Context
 	Logger runtime.Logger
 	Db     *sql.DB
 	Nk     runtime.NakamaModule
 	match *model.Match
+	closed bool
+	closeFunc func()
 	gut chan *model.GameMsg
 	curTick int64
 	PlayerTick map[string]map[int64]*model.GamePlayFrame
@@ -31,8 +90,9 @@ type Service struct {
 	status Status
 }
 
-func New(ctx context.Context, logger runtime.Logger, db *sql.DB, nk runtime.NakamaModule) *Service {
+func New(ctx context.Context, logger runtime.Logger, db *sql.DB, nk runtime.NakamaModule,match *model.Match,closeFunc func()) *Service {
 	s := &Service{
+		Aid:match.Aid,
 		Ctx:    ctx,
 		Logger: logger,
 		Db:     db,
@@ -41,16 +101,23 @@ func New(ctx context.Context, logger runtime.Logger, db *sql.DB, nk runtime.Naka
 		PlayerTick: map[string]map[int64]*model.GamePlayFrame{},
 		TimeTick: map[int64]map[string]*model.GamePlayFrame{},
 		status:Init,
+		match:match,
+		closeFunc:closeFunc,
 	}
 	return s
 }
 
+func (s *Service)close(){
+	// todo
+	s.closed=true
+	close(s.gut)
+	s.closeFunc()
+}
 func (s *Service)set(st Status){
 	s.status=st
 }
 
 func (s *Service) Start(match *model.Match) {
-	s.match=match
 	for{
 		switch s.status {
 		case Init:
@@ -60,16 +127,19 @@ func (s *Service) Start(match *model.Match) {
 
 		case Running:
 			s.startGame()
-			go s.run()
+			s.run()
 		case Finish:
 			s.finishGame()
-			return
+			break
 		}
 	}
+	s.close()
 }
 
 func (s *Service)Run(msg *model.GameMsg){
-	s.gut<-msg
+	if !s.closed {
+		s.gut <- msg
+	}
 }
 
 func (s *Service) initGame() {

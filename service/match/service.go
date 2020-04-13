@@ -10,7 +10,55 @@ import (
 	"nakama-golang/model"
 )
 
+type Group struct {
+	group map[int64]*Service
+	Match chan *model.Match
+	sync.Mutex
+}
+func NewGroup()*Group{
+	g:=&Group{
+		group: map[int64]*Service{},
+		Match:make(chan*model.Match,1024*64),
+		Mutex:sync.Mutex{},
+	}
+	return g
+}
+func (g *Group)Add(s *Service){
+	g.Lock()
+	defer g.Unlock()
+	if _,exist:=g.group[s.Aid];!exist{
+		g.group[s.Aid]=s
+	}
+	// chan转发
+	go func() {
+		for{
+			if v,ok:=<-s.Match;ok{
+				g.Match<-v
+			}
+			return
+		}
+	}()
+}
+func (g *Group)AddPlayer(Aid int64,UserId string){
+	g.Lock()
+	defer g.Unlock()
+	ser,exist:=g.group[Aid]
+	if exist{
+		ser.AddPlayer(UserId)
+	}
+}
+
+func (g *Group)ReadyMatch(Aid int64,matchId string, player, sessionID string){
+	g.Lock()
+	defer g.Unlock()
+	ser,exist:=g.group[Aid]
+	if exist{
+		ser.ReadyMatch(matchId,player,sessionID)
+	}
+}
+
 type Service struct {
+	Aid int64
 	Source       map[int64]string // mmr => id
 	Players      chan string
 	ReadyChan    map[string]chan *model.PlayerRealTime
@@ -24,8 +72,9 @@ type Service struct {
 	Match        chan *model.Match
 }
 
-func New(ctx context.Context, logger runtime.Logger, db *sql.DB, nk runtime.NakamaModule, topic string) *Service {
+func New(ctx context.Context, logger runtime.Logger, db *sql.DB, nk runtime.NakamaModule, aid int64,topic string) *Service {
 	s := &Service{
+		Aid:aid,
 		Source:       map[int64]string{},
 		Players:      make(chan string, 1024*1024),
 		ReadyChan:    map[string]chan *model.PlayerRealTime{},
@@ -101,6 +150,7 @@ func (s *Service) match() {
 		pmap[v] = ""
 	}
 	ma := &model.Match{
+		Aid :s.Aid,
 		MatchId: matchId,
 		Players: pmap,
 	}

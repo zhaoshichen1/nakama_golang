@@ -16,10 +16,8 @@ import (
 
 var (
 	ser   *service.Service
-	// todo match group
-	mat   *match.Service
-	// todo game group
-	gam   *game.Service
+	matchGroup   *match.Group
+	gameGroup   *game.Group
 	world = fantasy.New()
 )
 
@@ -37,8 +35,10 @@ func rpc() {
 func initService(ctx context.Context, logger runtime.Logger, db *sql.DB, nk runtime.NakamaModule) {
 	rand.Seed(time.Now().Unix())
 	ser = service.New()
-	mat = match.New(ctx, logger, db, nk, "hello")
-	gam = game.New(ctx, logger, db, nk)
+	matchGroup=match.NewGroup()
+	matchGroup.Add(match.New(ctx, logger, db, nk, 223344,"game"))
+	gameGroup=game.NewGroup(ctx, logger, db, nk)
+	go gameGroup.Tick()
 	go proxy()
 }
 
@@ -46,8 +46,8 @@ func proxy() {
 	ticker := time.NewTicker(time.Second)
 	for {
 		select {
-		case m := <-mat.Match:
-			go gam.Start(m)
+		case m := <-matchGroup.Match:
+			go gameGroup.Start(m)
 		case <-ticker.C:
 
 		}
