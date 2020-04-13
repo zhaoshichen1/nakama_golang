@@ -1,11 +1,14 @@
 ## preparation 
 brew services start cockroach
 
+内网console：
 http://localhost:26256/#/overview/list
 
+启动db：
 cockroach sql --insecure
     create database nakama
     
+初始化db数据：
 nakama migrate up    
 
 编译：nakama
