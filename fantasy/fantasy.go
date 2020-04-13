@@ -7,6 +7,7 @@ import (
 
 	"github.com/heroiclabs/nakama-common/api"
 	"github.com/heroiclabs/nakama-common/runtime"
+	"nakama-golang/model/event"
 )
 
 type Glove func(tifa *Tifa)
@@ -53,6 +54,10 @@ type Claude struct {
 	// my
 	Blades  Blades
 	isAbort bool
+}
+
+func (c *Claude)Event()event.Event{
+	return event.Event(c.Evt.Name)
 }
 
 func (c *Claude) Abort() {

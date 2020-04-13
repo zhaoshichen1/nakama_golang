@@ -1,4 +1,4 @@
-package model
+package protocol
 
 import "github.com/heroiclabs/nakama-common/runtime"
 

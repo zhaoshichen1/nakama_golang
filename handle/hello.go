@@ -1,24 +1,57 @@
 package handle
 
 import (
+	"github.com/heroiclabs/nakama-common/runtime"
 	"nakama-golang/fantasy"
-	"nakama-golang/model"
+	"nakama-golang/model/event"
+	"nakama-golang/protocol"
 )
 
 func helloHandle(t *fantasy.Tifa) {
-	req := &model.ReqHello{}
+	req := &protocol.ReqHello{}
 	if err := t.Bind(req); err != nil {
 		t.Abort()
 		return
 	}
-	res, err := ser.Hello(t.Ctx, t.Logger, t.Db, t.Nk, req)
-	t.Json(res, err)
+	t.Json(ser.Hello(t.Ctx, t.Logger, t.Db, t.Nk, req))
 }
 
-func helloEvent(c *fantasy.Claude) {
-
+func matchHandle(t *fantasy.Tifa){
+	req:=&protocol.ReqMatchJoin{}
+	if err:=t.Bind(req);err!=nil{
+		t.Abort()
+		return
+	}
+	t.Json(ser.MatchJoin(t.Ctx,t.Logger, t.Db,t.Nk,req))
 }
+
+func matchReady(t *fantasy.Tifa){
+	req:=&protocol.ReqMatchReady{}
+	if err:=t.Bind(req);err!=nil{
+		t.Abort()
+		return
+	}
+	t.Json(ser.MatchReady(t.Ctx,t.Logger,t.Db,t.Nk,req))
+}
+
 
 func worldEvent(c *fantasy.Claude) {
-
+	switch c.Event() {
+	case event.EventMatchJoin:
+		userId, ok := c.Ctx.Value(runtime.RUNTIME_CTX_USER_ID).(string)
+		if !ok {
+			// User ID not found in the context.
+			return
+		}
+		mat.AddPlayer(userId)
+	case event.EventMatchReady:
+		info:=c.Evt.Properties
+		userId, ok := c.Ctx.Value(runtime.RUNTIME_CTX_USER_ID).(string)
+		if !ok {
+			// User ID not found in the context.
+			return
+		}
+		mat.ReadyMatch(info["match_id"],userId)
+	}
 }
+

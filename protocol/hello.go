@@ -1,6 +1,8 @@
-package model
+package protocol
 
-import "encoding/json"
+import (
+	"encoding/json"
+)
 
 type ReqHello struct {
 	Hello string `json:"hello"`
