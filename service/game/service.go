@@ -31,20 +31,16 @@ func (s *Service)Start(match *model.Match){
 
 func (s *Service)initGame(match *model.Match){
 	msgs:=[]*runtime.NotificationSend{}
-	for i:=range match.Players{
+	for id,sea:=range match.Players{
 		tmp:=&runtime.NotificationSend{
-			UserID:     match.Players[i],
+			UserID:     id,
 			Subject:    "match_init",
 			Content:    nil,
 			Code:       0,
 			Sender:     "",
 			Persistent: false,
 		}
-		sessionId,ok:=s.Ctx.Value("RUNTIME_CTX_SESSION_ID").(string)
-		if !ok{
-			return
-		}
-		if ok, err := s.Nk.StreamUserJoin(model.MatchStream, match.MatchId, "", "", match.Players[i], sessionId, false,false, "");err!=nil||!ok{
+		if ok, err := s.Nk.StreamUserJoin(model.MatchStream, match.MatchId, "", "", id, sea, false,false, "");err!=nil||!ok{
 
 		}
 		msgs=append(msgs,tmp)

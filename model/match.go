@@ -6,6 +6,10 @@ const (
 
 type Match struct {
 	MatchId string
-	Players []string
+	Players map[string]string
 }
 
+type PlayerRealTime struct {
+	UserId    string
+	SessionId string
+}

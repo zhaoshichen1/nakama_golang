@@ -51,7 +51,12 @@ func worldEvent(c *fantasy.Claude) {
 			// User ID not found in the context.
 			return
 		}
-		mat.ReadyMatch(info["match_id"],userId)
+		sessionID, ok := c.Ctx.Value(runtime.RUNTIME_CTX_SESSION_ID).(string)
+		if !ok {
+			// If session ID is not found, RPC was not called over a connected socket.
+			return
+		}
+		mat.ReadyMatch(info["match_id"],userId,sessionID)
 	}
 }
 

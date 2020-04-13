@@ -3,6 +3,7 @@ package match
 import (
 	"context"
 	"database/sql"
+	"sync"
 	"time"
 
 	"github.com/heroiclabs/nakama-common/runtime"
@@ -10,10 +11,10 @@ import (
 )
 
 type Service struct {
-	Source map[int64]string
+	Source map[int64]string // mmr => id
 	Players chan string
-	Ready map[string]map[string]bool
-	ReadyChan map[string]chan string
+	ReadyChan map[string]chan *model.PlayerRealTime
+	readyMutex sync.Mutex
 	Topic string
 	ctx context.Context
 	logger runtime.Logger
@@ -27,8 +28,8 @@ func New(ctx context.Context, logger runtime.Logger, db *sql.DB,nk runtime.Nakam
 	s:=&Service{
 		Source: map[int64]string{},
 		Players:make(chan string,1024*1024),
-		Ready: map[string]map[string]bool{},
-		ReadyChan: map[string]chan string{},
+		ReadyChan: map[string]chan *model.PlayerRealTime{},
+		readyMutex:sync.Mutex{},
 		Topic:topic,
 		db :db,
 		nk:nk,
@@ -95,66 +96,80 @@ func (s *Service)match(){
 		}
 		delete(s.Source,k)
 	}
-	pmap:=map[string]bool{}
+	pmap:=map[string]string{}
 	for _,v:=range player{
-		pmap[v]=false
+		pmap[v]=""
 	}
-	s.Ready[matchId]=pmap
-	s.ReadyChan[matchId]=make(chan string,16)
-	go s.ready(matchId)
+	ma:=&model.Match{
+		MatchId: matchId,
+		Players: pmap,
+	}
+	s.readyMutex.Lock()
+	defer s.readyMutex.Unlock()
+	s.ReadyChan[matchId]=make(chan *model.PlayerRealTime,16)
+	go s.ready(ma,s.ReadyChan[matchId])
 }
 
-func (s *Service)Start(matchId string){
-	player:=s.Ready[matchId]
+func (s *Service)Start(mat *model.Match){
 	info:=map[string]interface{}{
-		"players":player,
-		"matchId":matchId,
+		"players":mat.Players,
+		"matchId":mat.MatchId,
 	}
-	for v,_:=range player{
+	for v,_:=range mat.Players{
 		if err:=s.nk.NotificationSend(s.ctx,v,"match_start",info,0,"",false);err!=nil{
 			s.logger.Error("match notify err:%+v",err)
 			return
 		}
 	}
+	s.Match<-mat
 }
 
-func (s *Service)Rejoin(matchId string){
-	delete(s.ReadyChan,matchId)
-	player:=s.Ready[matchId]
-	delete(s.Ready,matchId)
-	for p,_:=range player{
+func (s *Service)Rejoin(mat *model.Match){
+	for p,_:=range mat.Players{
 		// todo notify failed
 		s.AddPlayer(p)
 	}
 }
 
-func (s *Service)ready(matchId string){
+func (s *Service)ready(mat *model.Match,ch chan*model.PlayerRealTime){
 	ticker:=time.NewTicker(time.Second)
 	timer:=time.NewTimer(time.Second*30)
+	defer func() {
+		s.readyMutex.Lock()
+		defer s.readyMutex.Unlock()
+		delete(s.ReadyChan,mat.MatchId)
+	}()
 	for {
 		select {
 		case <-ticker.C:
-			for k,v:=range s.Ready[matchId]{
-				s.logger.Info("match :%v => player:%v ready status:%v",matchId,k,v)
-				if !v{
+			for k,v:=range mat.Players{
+				s.logger.Info("match :%v => player:%v ready status:%v",mat.MatchId,k,v)
+				if v==""{
 					continue
 				}
-				s.Start(matchId)
+				s.Start(mat)
 				return
 			}
 		case <-timer.C:
-			s.logger.Info("match :%v => failed",matchId)
-			s.Rejoin(matchId)
+			s.logger.Info("match :%v => failed",mat.MatchId)
+			s.Rejoin(mat)
 			return
 
-		case player:=<-s.ReadyChan[matchId]:
-			s.Ready[matchId][player]=true
+		case player:=<-ch:
+			mat.Players[player.UserId]=player.SessionId
+			// todo notify
 		}
 	}
 }
 
-func (s *Service)ReadyMatch(matchId string,player string){
+func (s *Service)ReadyMatch(matchId string,player,sessionID string){
+	info:=&model.PlayerRealTime{
+		UserId:    player,
+		SessionId: sessionID,
+	}
+	s.readyMutex.Lock()
+	defer s.readyMutex.Unlock()
 	if _,exist:=s.ReadyChan[matchId] ;exist{
-		s.ReadyChan[matchId] <- player
+		s.ReadyChan[matchId] <- info
 	}
 }
