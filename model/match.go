@@ -1,7 +1,7 @@
 package model
 
 const (
-	MatchStream = 10
+	GameStream = 10
 )
 
 type Match struct {

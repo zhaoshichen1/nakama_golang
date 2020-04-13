@@ -111,8 +111,12 @@ func (s *Service) match() {
 }
 
 func (s *Service) Start(mat *model.Match) {
+	player:=[]string{}
+	for id,_:=range mat.Players{
+		player=append(player,id)
+	}
 	info := map[string]interface{}{
-		"players": mat.Players,
+		"players": player,
 		"matchId": mat.MatchId,
 	}
 	for v, _ := range mat.Players {

@@ -15,7 +15,9 @@ import (
 
 var (
 	ser   *service.Service
+	// todo match group
 	mat   *match.Service
+	// todo game group
 	gam   *game.Service
 	world = fantasy.New()
 )
@@ -42,7 +44,7 @@ func proxy() {
 	for {
 		select {
 		case m := <-mat.Match:
-			gam.Start(m)
+			go gam.Start(m)
 		case <-ticker.C:
 
 		}
