@@ -15,10 +15,10 @@ import (
 )
 
 var (
-	ser   *service.Service
-	matchGroup   *match.Group
-	gameGroup   *game.Group
-	world = fantasy.New()
+	ser        *service.Service
+	matchGroup *match.Group
+	gameGroup  *game.Group
+	world      = fantasy.New()
 )
 
 func rpc() {
@@ -27,7 +27,7 @@ func rpc() {
 	world.RegistGlove("hello", helloHandle)
 	world.RegistGlove("match", matchHandle)
 	world.RegistGlove("match/ready", matchReady)
-	world.RegistGlove("game/tick",gameTick)
+	world.RegistGlove("game/tick", gameTick)
 
 	world.RegistBlade(worldEvent)
 }
@@ -35,9 +35,9 @@ func rpc() {
 func initService(ctx context.Context, logger runtime.Logger, db *sql.DB, nk runtime.NakamaModule) {
 	rand.Seed(time.Now().Unix())
 	ser = service.New()
-	matchGroup=match.NewGroup()
-	matchGroup.Add(match.New(ctx, logger, db, nk, 223344,"game"))
-	gameGroup=game.NewGroup(ctx, logger, db, nk)
+	matchGroup = match.NewGroup()
+	matchGroup.Add(match.New(ctx, logger, db, nk, 223344, "game"))
+	gameGroup = game.NewGroup(ctx, logger, db, nk)
 	go gameGroup.Tick()
 	go proxy()
 }

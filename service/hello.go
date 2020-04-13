@@ -31,7 +31,7 @@ func (s *Service) MatchJoin(ctx context.Context, logger runtime.Logger, db *sql.
 		Name: event.EventMatchJoin.String(),
 		Properties: map[string]string{
 			"topic": req.Topic,
-			"aid":util.ToString(req.Aid),
+			"aid":   util.ToString(req.Aid),
 		},
 		External: false,
 	}); err != nil {
@@ -45,7 +45,7 @@ func (s *Service) MatchReady(ctx context.Context, logger runtime.Logger, db *sql
 		Name: event.EventMatchReady.String(),
 		Properties: map[string]string{
 			"match_id": req.MatchId,
-			"aid":util.ToString(req.MatchId),
+			"aid":      util.ToString(req.MatchId),
 		},
 		External: false,
 	}); err != nil {
@@ -54,16 +54,16 @@ func (s *Service) MatchReady(ctx context.Context, logger runtime.Logger, db *sql
 	return nil, nil
 }
 
-func (s *Service)GameTick(ctx context.Context,logger runtime.Logger,db *sql.DB,nk runtime.NakamaModule,req *protocol.ReqGameTick)(v interface{},err error){
-	jstr,_:=json.Marshal(req.Frame)
-	if err:=nk.Event(ctx,&api.Event{
-		Name:                 event.EventGameRun.String(),
+func (s *Service) GameTick(ctx context.Context, logger runtime.Logger, db *sql.DB, nk runtime.NakamaModule, req *protocol.ReqGameTick) (v interface{}, err error) {
+	jstr, _ := json.Marshal(req.Frame)
+	if err := nk.Event(ctx, &api.Event{
+		Name: event.EventGameRun.String(),
 		Properties: map[string]string{
-			"data":string(jstr),
+			"data": string(jstr),
 		},
-		External:             false,
-	});err!=nil{
-			return nil,err
+		External: false,
+	}); err != nil {
+		return nil, err
 	}
-	return nil,nil
+	return nil, nil
 }

@@ -15,50 +15,51 @@ type Group struct {
 	Match chan *model.Match
 	sync.Mutex
 }
-func NewGroup()*Group{
-	g:=&Group{
+
+func NewGroup() *Group {
+	g := &Group{
 		group: map[int64]*Service{},
-		Match:make(chan*model.Match,1024*64),
-		Mutex:sync.Mutex{},
+		Match: make(chan *model.Match, 1024*64),
+		Mutex: sync.Mutex{},
 	}
 	return g
 }
-func (g *Group)Add(s *Service){
+func (g *Group) Add(s *Service) {
 	g.Lock()
 	defer g.Unlock()
-	if _,exist:=g.group[s.Aid];!exist{
-		g.group[s.Aid]=s
+	if _, exist := g.group[s.Aid]; !exist {
+		g.group[s.Aid] = s
 	}
 	// chan转发
 	go func() {
-		for{
-			if v,ok:=<-s.Match;ok{
-				g.Match<-v
+		for {
+			if v, ok := <-s.Match; ok {
+				g.Match <- v
 			}
 			return
 		}
 	}()
 }
-func (g *Group)AddPlayer(Aid int64,UserId string){
+func (g *Group) AddPlayer(Aid int64, UserId string) {
 	g.Lock()
 	defer g.Unlock()
-	ser,exist:=g.group[Aid]
-	if exist{
+	ser, exist := g.group[Aid]
+	if exist {
 		ser.AddPlayer(UserId)
 	}
 }
 
-func (g *Group)ReadyMatch(Aid int64,matchId string, player, sessionID string){
+func (g *Group) ReadyMatch(Aid int64, matchId string, player, sessionID string) {
 	g.Lock()
 	defer g.Unlock()
-	ser,exist:=g.group[Aid]
-	if exist{
-		ser.ReadyMatch(matchId,player,sessionID)
+	ser, exist := g.group[Aid]
+	if exist {
+		ser.ReadyMatch(matchId, player, sessionID)
 	}
 }
 
 type Service struct {
-	Aid int64
+	Aid          int64
 	Source       map[int64]string // mmr => id
 	Players      chan string
 	ReadyChan    map[string]chan *model.PlayerRealTime
@@ -72,9 +73,9 @@ type Service struct {
 	Match        chan *model.Match
 }
 
-func New(ctx context.Context, logger runtime.Logger, db *sql.DB, nk runtime.NakamaModule, aid int64,topic string) *Service {
+func New(ctx context.Context, logger runtime.Logger, db *sql.DB, nk runtime.NakamaModule, aid int64, topic string) *Service {
 	s := &Service{
-		Aid:aid,
+		Aid:          aid,
 		Source:       map[int64]string{},
 		Players:      make(chan string, 1024*1024),
 		ReadyChan:    map[string]chan *model.PlayerRealTime{},
@@ -150,7 +151,7 @@ func (s *Service) match() {
 		pmap[v] = ""
 	}
 	ma := &model.Match{
-		Aid :s.Aid,
+		Aid:     s.Aid,
 		MatchId: matchId,
 		Players: pmap,
 	}
@@ -161,9 +162,9 @@ func (s *Service) match() {
 }
 
 func (s *Service) Start(mat *model.Match) {
-	player:=[]string{}
-	for id,_:=range mat.Players{
-		player=append(player,id)
+	player := []string{}
+	for id, _ := range mat.Players {
+		player = append(player, id)
 	}
 	info := map[string]interface{}{
 		"players": player,

@@ -5,7 +5,7 @@ const (
 )
 
 type Match struct {
-	Aid int64
+	Aid     int64
 	MatchId string
 	Players map[string]string
 }
