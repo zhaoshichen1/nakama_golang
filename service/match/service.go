@@ -162,17 +162,13 @@ func (s *Service) match() {
 }
 
 func (s *Service) Start(mat *model.Match) {
-	player := []string{}
-	for id := range mat.Players {
-		player = append(player, id)
-	}
 	info := map[string]interface{}{
-		"players":  player,
 		"match_id": mat.MatchId,
 		"deadline": model.ConfirmDeadline,
 	}
-	for v, _ := range mat.Players {
-		if err := s.nk.NotificationSend(s.ctx, v, "match_start", info, 0, "", false); err != nil {
+	for userID := range mat.Players {
+		// todo fail-over
+		if err := s.nk.NotificationSend(s.ctx, userID, "match_start", info, 0, "", true); err != nil {
 			s.logger.Error("match notify err:%+v", err)
 			return
 		}
