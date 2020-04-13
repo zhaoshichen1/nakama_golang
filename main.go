@@ -28,6 +28,7 @@ func InitModule(ctx context.Context, logger runtime.Logger, db *sql.DB, nk runti
 	logger.Info("InitModule success")
 	return nil
 }
+
 func processEvent(ctx context.Context, logger runtime.Logger, evt *api.Event){
 	switch evt.GetName() {
 	case "bar":
@@ -38,6 +39,7 @@ func processEvent(ctx context.Context, logger runtime.Logger, evt *api.Event){
 		logger.Error("unrecognised evt: %+v", evt)
 	}
 }
+
 func Bar(ctx context.Context, logger runtime.Logger, db *sql.DB, nk runtime.NakamaModule, payload string)(string,error){
 	evt := &api.Event{
 		Name:       "bar",
@@ -53,6 +55,7 @@ func Bar(ctx context.Context, logger runtime.Logger, db *sql.DB, nk runtime.Naka
 	}
 	return "success",nil
 }
+
 func Hello(ctx context.Context, logger runtime.Logger, db *sql.DB, nk runtime.NakamaModule, payload string) (string, error) {
 	logger.Info("call hello : %s", []byte(payload))
 	userId, ok := ctx.Value(runtime.RUNTIME_CTX_USER_ID).(string)
