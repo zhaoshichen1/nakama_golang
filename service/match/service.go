@@ -11,8 +11,8 @@ import (
 )
 
 type Service struct {
-	Source       map[int64]string // mmr => id
-	Players      chan string
+	Source       []string // mmr => id
+	players      chan string
 	ReadyChan    map[string]chan *model.PlayerRealTime
 	readyMutex   sync.Mutex
 	Topic        string
@@ -26,8 +26,8 @@ type Service struct {
 
 func New(ctx context.Context, logger runtime.Logger, db *sql.DB, nk runtime.NakamaModule, topic string) *Service {
 	s := &Service{
-		Source:       map[int64]string{},
-		Players:      make(chan string, 1024*1024),
+		Source:       make([]string, 0),
+		players:      make(chan string, 1024*1024),
 		ReadyChan:    map[string]chan *model.PlayerRealTime{},
 		readyMutex:   sync.Mutex{},
 		Topic:        topic,
@@ -43,61 +43,44 @@ func New(ctx context.Context, logger runtime.Logger, db *sql.DB, nk runtime.Naka
 }
 
 func (s *Service) AddPlayer(id string) {
-	s.Players <- id
+	s.players <- id
 }
 
 func (s *Service) run() {
 	ticker := time.NewTicker(time.Second)
 	for {
 		select {
-		case player := <-s.Players:
-			// add player to mmrMap
+		case player := <-s.players: // add player to mmrMap
 			s.Source[time.Now().Unix()] = player
-		case <-ticker.C:
+		case <-ticker.C: // every second try to match
 			s.match()
 		}
 	}
 }
 
 func (s *Service) match() {
-	player := []string{}
-	count := 0
-	for k, v := range s.Source {
-		if count > 5 {
-			break
-		}
-		s.logger.Info("match :%v=>%v", k, v)
-		player = append(player, v)
-		count++
-	}
-	if len(player) < 5 {
+	if len(s.Source) < model.MathMinPlayers {
 		return
 	}
+	players := s.Source[:model.MathMinPlayers] // pick minimum users to play
+	s.Source = s.Source[model.MathMinPlayers:]
 	matchId, err := s.nk.MatchCreate(s.ctx, s.Topic, s.defaultParam)
 	if err != nil {
 		s.logger.Error("match create err:%+v", err)
 		return
 	}
 	info := map[string]interface{}{
-		"players": player,
+		"players": players,
 		"matchId": matchId,
 	}
-	for _, v := range player {
+	for _, v := range players {
 		if err := s.nk.NotificationSend(s.ctx, v, "match", info, 0, "", false); err != nil {
 			s.logger.Error("match notify err:%+v", err)
 			return
 		}
 	}
-	count = 0
-	for k, _ := range s.Source {
-		count++
-		if count > 5 {
-			break
-		}
-		delete(s.Source, k)
-	}
 	pmap := map[string]string{}
-	for _, v := range player {
+	for _, v := range players {
 		pmap[v] = ""
 	}
 	ma := &model.Match{
