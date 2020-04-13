@@ -43,6 +43,7 @@ func NewGroup(ctx context.Context, logger runtime.Logger, db *sql.DB, nk runtime
 	}
 	return g
 }
+
 func (g *Group) Start(match *model.Match) {
 	g.Lock()
 	defer g.Unlock()
@@ -125,7 +126,8 @@ func (s *Service) Start(match *model.Match) {
 			s.initGame()
 			s.set(Ready)
 		case Ready:
-
+			s.readyGame()
+			s.set(Running)
 		case Running:
 			s.startGame()
 			s.run()
@@ -147,12 +149,15 @@ func (s *Service) initGame() {
 	msgs := []*runtime.NotificationSend{}
 	for id, sea := range s.match.Players {
 		tmp := &runtime.NotificationSend{
-			UserID:     id,
-			Subject:    "game_init",
-			Content:    nil,
+			UserID:  id,
+			Subject: "game_init",
+			Content: map[string]interface{}{
+				// todo
+				"data": "",
+			},
 			Code:       0,
 			Sender:     "",
-			Persistent: false,
+			Persistent: true,
 		}
 		if ok, err := s.Nk.StreamUserJoin(model.GameStream, s.match.MatchId, "", "", id, sea, false, false, ""); err != nil || !ok {
 			s.Logger.Error("join failed err:%+v", err)
@@ -166,23 +171,60 @@ func (s *Service) initGame() {
 	}
 }
 
-func (s *Service) startGame() {
+func (s *Service) readyGame() {
+	// 超时
+	timer := time.NewTimer(time.Minute)
+	ticker := time.NewTicker(time.Second)
+	for {
+		select {
+		case <-timer.C:
+			// todo failed notify
+			s.set(Finish)
+			return
+		case <-ticker.C:
+			if len(s.PlayerTick) == len(s.match.Players) {
+				// todo success notify
+				s.set(Running)
+				return
+			}
+		case msg, closed := <-s.gut:
+			if !closed {
+				return
+			}
+			s.ready(msg)
+		}
+	}
+}
+
+func (s *Service) broadcast(subject string, content map[string]interface{}) {
 	msgs := []*runtime.NotificationSend{}
 	for id, _ := range s.match.Players {
 		tmp := &runtime.NotificationSend{
 			UserID:     id,
-			Subject:    "game_start",
-			Content:    nil,
+			Subject:    subject,
+			Content:    content,
 			Code:       0,
 			Sender:     "",
-			Persistent: false,
+			Persistent: true,
 		}
 		msgs = append(msgs, tmp)
 	}
 	if err := s.Nk.NotificationsSend(s.Ctx, msgs); err != nil {
-		s.Logger.Error("start_game err:%+v", err)
-		return
+		s.Logger.Error("%s err:%+v", subject, err)
 	}
+}
+
+func (s *Service) ready(msg *model.GameMsg) {
+	s.PlayerTick[msg.UserId] = map[int64]*model.GamePlayFrame{}
+	// todo notify
+	s.broadcast("game_ready", map[string]interface{}{
+		"player": msg.UserId,
+		"status": s.status,
+	})
+}
+
+func (s *Service) startGame() {
+	s.broadcast("game_start", nil)
 }
 
 func (s *Service) finishGame() {
