@@ -41,7 +41,7 @@ func (s *Service) initGame(match *model.Match) {
 			Persistent: false,
 		}
 		if ok, err := s.Nk.StreamUserJoin(model.MatchStream, match.MatchId, "", "", id, sea, false, false, ""); err != nil || !ok {
-
+			return
 		}
 		msgs = append(msgs, tmp)
 	}
