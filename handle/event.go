@@ -38,7 +38,7 @@ func worldEvent(c *fantasy.Claude) {
 		matchId := info["match_id"]
 		matchGroup.ReadyMatch(aid, matchId, userId, sessionID)
 	case event.EventGameReady:
-		info := c.Evt.Properties
+		// info := c.Evt.Properties
 		userId, ok := c.Ctx.Value(runtime.RUNTIME_CTX_USER_ID).(string)
 		if !ok {
 			// User ID not found in the context.
