@@ -1,7 +1,8 @@
 package model
 
 const (
-	GameStream = 10
+	GameStream      = 10
+	ConfirmDeadline = 30 // 确认时间30s
 )
 
 type Match struct {

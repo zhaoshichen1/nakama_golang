@@ -167,8 +167,9 @@ func (s *Service) Start(mat *model.Match) {
 		player = append(player, id)
 	}
 	info := map[string]interface{}{
-		"players": player,
-		"matchId": mat.MatchId,
+		"players":  player,
+		"matchId":  mat.MatchId,
+		"deadline": model.ConfirmDeadline,
 	}
 	for v, _ := range mat.Players {
 		if err := s.nk.NotificationSend(s.ctx, v, "match_start", info, 0, "", false); err != nil {
@@ -188,7 +189,7 @@ func (s *Service) Rejoin(mat *model.Match) {
 
 func (s *Service) ready(mat *model.Match, ch chan *model.PlayerRealTime) {
 	ticker := time.NewTicker(time.Second)
-	timer := time.NewTimer(time.Second * 30)
+	timer := time.NewTimer(time.Second * model.ConfirmDeadline)
 	defer func() {
 		s.readyMutex.Lock()
 		defer s.readyMutex.Unlock()
