@@ -11,7 +11,7 @@ import (
 )
 
 type Service struct {
-	Source       []string // mmr => id
+	Source       []string // 用户池
 	players      chan string
 	ReadyChan    map[string]chan *model.PlayerRealTime
 	readyMutex   sync.Mutex
@@ -51,7 +51,7 @@ func (s *Service) run() {
 	for {
 		select {
 		case player := <-s.players: // add player to mmrMap
-			s.Source[time.Now().Unix()] = player
+			s.Source = append(s.Source, player)
 		case <-ticker.C: // every second try to match
 			s.match()
 		}
@@ -108,7 +108,7 @@ func (s *Service) Start(mat *model.Match) {
 }
 
 func (s *Service) Rejoin(mat *model.Match) {
-	for p, _ := range mat.Players {
+	for p := range mat.Players {
 		// todo notify failed
 		s.AddPlayer(p)
 	}
