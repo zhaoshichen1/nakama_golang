@@ -17,8 +17,8 @@ type Blade func(claude *Claude)
 type Blades []Blade
 
 type World struct {
-	Heroine map[string]Gloves
-	Hero    Blades
+	Heroine map[string]Gloves // rpc方法
+	Hero    Blades            // event响应方法
 }
 
 func New() *World {
@@ -56,7 +56,7 @@ type Claude struct {
 	isAbort bool
 }
 
-func (c *Claude)Event()event.Event{
+func (c *Claude) Event() event.Event {
 	return event.Event(c.Evt.Name)
 }
 
