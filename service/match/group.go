@@ -1,12 +1,18 @@
 package match
 
 import (
+	"sync"
+
 	"nakama-golang/model"
 )
+
+var defaultParam = make(map[string]interface{})
 
 // Group 为同一个aid下的玩家进行多组匹配
 type Group struct {
 	Players []string
+	Matches map[string]*model.Match
+	mutex   sync.Mutex
 }
 
 func (g *Group) AddPlayer(UserIds []string) {

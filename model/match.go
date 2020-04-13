@@ -10,6 +10,7 @@ type Match struct {
 	Aid     int64
 	MatchId string
 	Players map[string]string // key=userID, value=sessionID
+	Chan    chan *PlayerRealTime
 }
 
 type PlayerRealTime struct {

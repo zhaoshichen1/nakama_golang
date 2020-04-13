@@ -13,9 +13,10 @@ import (
 // Manager 为所有aid进行匹配
 type Manager struct {
 	// match structures
-	Groups   map[int64]*Group // key=aid,value=match_group
-	mutex    sync.RWMutex
-	NewMatch chan *model.Match // 新匹配成功
+	Groups       map[int64]*Group // key=aid,value=match_group
+	mutex        sync.RWMutex
+	NewMatch     chan *model.Match // 新匹配成功
+	ConfirmMatch chan *model.PlayerRealTime
 
 	// dependency objects
 	ctx    context.Context
@@ -25,8 +26,9 @@ type Manager struct {
 
 func NewMatchManager() *Manager {
 	return &Manager{
-		Groups:   make(map[int64]*Group),
-		NewMatch: make(chan *model.Match, 1024),
+		Groups:       make(map[int64]*Group),
+		NewMatch:     make(chan *model.Match, 10240),
+		ConfirmMatch: make(chan *model.PlayerRealTime, 10240),
 	}
 }
 
@@ -61,15 +63,21 @@ func (this *Manager) Match() {
 					this.NewPlayer(aid, players) // 匹配失败，重新加入等待队列中
 					continue
 				}
-				// tmp := make(map[string]string)
-				// for _, v := range players {
-				// 	tmp[v] = ""
-				// }
-				// this.NewMatch <- &model.Match{ // 通知game service新的匹配诞生
-				// 	Aid:     aid,
-				// 	MatchId: newMatch,
-				// 	Players: tmp,
-				// }
+				tmp := make(map[string]string)
+				for _, v := range players { // 等待用户确认上报sessionID
+					tmp[v] = ""
+				}
+
+				this.Groups[aid].mutex.Lock() // 进入等待确认流程
+				match := &model.Match{
+					Aid:     aid,
+					MatchId: newMatch,
+					Players: tmp,
+					Chan:    make(chan *model.PlayerRealTime, 1024),
+				}
+				this.Groups[aid].Matches[newMatch] = match
+				this.Groups[aid].mutex.Unlock()
+				go this.WaitConfirm(match, match.Chan)
 			}
 		}
 	}
@@ -93,45 +101,52 @@ func (this *Manager) Start(mat *model.Match) {
 			return
 		}
 	}
+	this.NewMatch <- mat // 通知game那边有新确认的匹配信息，准备开始游戏
 }
 
-func (s *Match) ready(mat *model.Match, ch chan *model.PlayerRealTime) {
+// 等待确认
+func (this *Manager) WaitConfirm(mat *model.Match, ch chan *model.PlayerRealTime) {
+	defer func() { // 删除匹配信息
+		this.Groups[mat.Aid].mutex.Lock()
+		delete(this.Groups[mat.Aid].Matches, mat.MatchId)
+		this.Groups[mat.Aid].mutex.Unlock()
+	}()
 	ticker := time.NewTicker(time.Second)
 	timer := time.NewTimer(time.Second * model.ConfirmDeadline)
-	defer func() {
-		s.mutex.Lock()
-		defer s.mutex.Unlock()
-		delete(s.ReadyChan, mat.MatchId)
-	}()
 	for {
 		select {
 		case <-ticker.C:
-			for k, v := range mat.Players {
-				s.logger.Info("match :%v => player:%v ready status:%v", mat.MatchId, k, v)
+			for k, v := range mat.Players { // 等待用户请求上报session ID
+				this.logger.Info("match :%v => player:%v ready status:%v", mat.MatchId, k, v)
 				if v == "" {
 					continue
 				}
-				s.Start(mat)
+				this.Start(mat)
 				return
 			}
 		case <-timer.C: // todo 通知匹配超时
-			s.logger.Info("match :%v => failed", mat.MatchId)
+			this.logger.Info("match :%v => failed", mat.MatchId)
 			return
 		case player := <-ch:
 			mat.Players[player.UserId] = player.SessionId
-			// todo notify
 		}
 	}
 }
 
-func (s *Match) ReadyMatch(matchId string, player, sessionID string) {
+func (this *Manager) ReadyMatch(aid int64, matchId string, player, sessionID string) {
 	info := &model.PlayerRealTime{
 		UserId:    player,
 		SessionId: sessionID,
 	}
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-	if _, exist := s.ReadyChan[matchId]; exist {
-		s.ReadyChan[matchId] <- info
+	if _, ok := this.Groups[aid]; !ok {
+		this.logger.Printf("Aid Group not found, aid %d", aid)
+		return
 	}
+	this.Groups[aid].mutex.Lock() // 进入等待确认流程
+	if _, ok := this.Groups[aid].Matches[matchId]; !ok {
+		this.logger.Printf("Aid %d MatchID %s", aid, matchId)
+		return
+	}
+	this.Groups[aid].Matches[matchId].Chan <- info // 计入确认信息
+	this.Groups[aid].mutex.Unlock()
 }
