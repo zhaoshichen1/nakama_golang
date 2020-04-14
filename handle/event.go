@@ -21,7 +21,7 @@ func worldEvent(c *fantasy.Claude) {
 		}
 		info := c.Evt.Properties
 		aid := util.ToInt64(info["aid"])
-		matchGroup.AddPlayer(aid, userId)
+		matchManager.NewPlayer(aid, []string{userId})
 	case event.EventMatchReady:
 		info := c.Evt.Properties
 		userId, ok := c.Ctx.Value(runtime.RUNTIME_CTX_USER_ID).(string)
@@ -36,7 +36,7 @@ func worldEvent(c *fantasy.Claude) {
 		}
 		aid := util.ToInt64(info["aid"])
 		matchId := info["match_id"]
-		matchGroup.ReadyMatch(aid, matchId, userId, sessionID)
+		matchManager.ReadyMatch(aid, matchId, userId, sessionID)
 	case event.EventGameReady:
 		// info := c.Evt.Properties
 		userId, ok := c.Ctx.Value(runtime.RUNTIME_CTX_USER_ID).(string)

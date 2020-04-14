@@ -146,7 +146,7 @@ func (s *Service) Run(msg *model.GameMsg) {
 }
 
 func (s *Service) initGame() {
-	msgs := []*runtime.NotificationSend{}
+	var msgs []*runtime.NotificationSend
 	for id, sea := range s.match.Players {
 		tmp := &runtime.NotificationSend{
 			UserID:  id,
@@ -197,8 +197,8 @@ func (s *Service) readyGame() {
 }
 
 func (s *Service) broadcast(subject string, content map[string]interface{}) {
-	msgs := []*runtime.NotificationSend{}
-	for id, _ := range s.match.Players {
+	var msgs []*runtime.NotificationSend
+	for id := range s.match.Players {
 		tmp := &runtime.NotificationSend{
 			UserID:     id,
 			Subject:    subject,
@@ -228,8 +228,8 @@ func (s *Service) startGame() {
 }
 
 func (s *Service) finishGame() {
-	msgs := []*runtime.NotificationSend{}
-	for id, _ := range s.match.Players {
+	var msgs []*runtime.NotificationSend
+	for id := range s.match.Players {
 		tmp := &runtime.NotificationSend{
 			UserID:     id,
 			Subject:    "game_finish",
