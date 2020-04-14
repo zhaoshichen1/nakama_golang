@@ -24,8 +24,9 @@ type Manager struct {
 	nk     runtime.NakamaModule
 }
 
-func NewMatchManager() *Manager {
+func NewMatchManager(ctx context.Context) *Manager {
 	return &Manager{
+		ctx:          ctx,
 		Groups:       make(map[int64]*Group),
 		NewMatch:     make(chan *model.Match, 10240),
 		ConfirmMatch: make(chan *model.PlayerRealTime, 10240),
@@ -57,7 +58,7 @@ func (this *Manager) Match() {
 				continue
 			}
 			for _, players := range playerGroups {
-				newMatch, err := this.nk.MatchCreate(context.Background(), "", defaultParam)
+				newMatch, err := this.nk.MatchCreate(this.ctx, "", defaultParam)
 				if err != nil {
 					this.logger.Printf("match create uids %v, err %v", players, err)
 					this.NewPlayer(aid, players) // 匹配失败，重新加入等待队列中
@@ -68,7 +69,7 @@ func (this *Manager) Match() {
 					tmp[v] = ""
 				}
 
-				this.Groups[aid].mutex.Lock() // 进入等待确认流程
+				this.Groups[aid].matMutex.Lock() // 进入等待确认流程
 				match := &model.Match{
 					Aid:     aid,
 					MatchId: newMatch,
@@ -76,7 +77,7 @@ func (this *Manager) Match() {
 					Chan:    make(chan *model.PlayerRealTime, 1024),
 				}
 				this.Groups[aid].Matches[newMatch] = match
-				this.Groups[aid].mutex.Unlock()
+				this.Groups[aid].matMutex.Unlock()
 				go this.WaitConfirm(match, match.Chan)
 			}
 		}
@@ -96,7 +97,7 @@ func (this *Manager) Start(mat *model.Match) {
 		"deadline": model.ConfirmDeadline,
 	}
 	for userID := range mat.Players {
-		if err := this.nk.NotificationSend(context.Background(), userID, "match_start", info, 0, "", true); err != nil {
+		if err := this.nk.NotificationSend(this.ctx, userID, "match_start", info, 0, "", true); err != nil {
 			this.logger.Error("match notify err:%+v", err)
 			return
 		}
@@ -107,9 +108,9 @@ func (this *Manager) Start(mat *model.Match) {
 // 等待确认
 func (this *Manager) WaitConfirm(mat *model.Match, ch chan *model.PlayerRealTime) {
 	defer func() { // 删除匹配信息
-		this.Groups[mat.Aid].mutex.Lock()
+		this.Groups[mat.Aid].matMutex.Lock()
 		delete(this.Groups[mat.Aid].Matches, mat.MatchId)
-		this.Groups[mat.Aid].mutex.Unlock()
+		this.Groups[mat.Aid].matMutex.Unlock()
 	}()
 	ticker := time.NewTicker(time.Second)
 	timer := time.NewTimer(time.Second * model.ConfirmDeadline)
@@ -142,11 +143,11 @@ func (this *Manager) ReadyMatch(aid int64, matchId string, player, sessionID str
 		this.logger.Printf("Aid Group not found, aid %d", aid)
 		return
 	}
-	this.Groups[aid].mutex.Lock() // 进入等待确认流程
+	this.Groups[aid].matMutex.Lock() // 进入等待确认流程
 	if _, ok := this.Groups[aid].Matches[matchId]; !ok {
 		this.logger.Printf("Aid %d MatchID %s", aid, matchId)
 		return
 	}
 	this.Groups[aid].Matches[matchId].Chan <- info // 计入确认信息
-	this.Groups[aid].mutex.Unlock()
+	this.Groups[aid].matMutex.Unlock()
 }
