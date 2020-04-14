@@ -26,3 +26,6 @@ type ReqGameTick struct {
 	CurTick int64
 	Frame   *model.GamePlayFrame
 }
+
+type ReqGameReady struct {
+}

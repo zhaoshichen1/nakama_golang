@@ -32,6 +32,15 @@ func matchReady(t *fantasy.Tifa) {
 	t.Json(ser.MatchReady(t.Ctx, t.Logger, t.Db, t.Nk, req))
 }
 
+func gameReady(t *fantasy.Tifa) {
+	req := &protocol.ReqGameReady{}
+	if err := t.Bind(req); err != nil {
+		t.Abort()
+		return
+	}
+	t.Json(ser.GameReady(t.Ctx, t.Logger, t.Db, t.Nk, req))
+}
+
 func gameTick(t *fantasy.Tifa) {
 	req := &protocol.ReqGameTick{}
 	if err := t.Bind(req); err != nil {

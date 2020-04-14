@@ -15,11 +15,16 @@ import (
 type Status string
 
 const (
-	Init    = Status("init")
-	Ready   = Status("ready")
-	Running = Status("running")
-	Finish  = Status("finish")
+	Init    = Status("game_init")
+	Ready   = Status("game_ready")
+	Start   = Status("game_start")
+	Running = Status("game_running")
+	Finish  = Status("game_finish")
 )
+
+func (s Status) String() string {
+	return string(s)
+}
 
 type Group struct {
 	sync.Mutex
@@ -77,34 +82,36 @@ func (g *Group) Run(msg *model.GameMsg) {
 }
 
 type Service struct {
-	Aid        int64
-	Ctx        context.Context
-	Logger     runtime.Logger
-	Db         *sql.DB
-	Nk         runtime.NakamaModule
-	match      *model.Match
-	closed     bool
-	closeFunc  func()
-	gut        chan *model.GameMsg
-	curTick    int64
-	PlayerTick map[string]map[int64]*model.GamePlayFrame
-	TimeTick   map[int64]map[string]*model.GamePlayFrame
-	status     Status
+	Aid         int64
+	Ctx         context.Context
+	Logger      runtime.Logger
+	Db          *sql.DB
+	Nk          runtime.NakamaModule
+	match       *model.Match
+	closed      bool
+	closeFunc   func()
+	gut         chan *model.GameMsg
+	curTick     int64
+	startTick   int64
+	startTimer  *time.Timer
+	PlayerFrame map[string]map[int64]*model.GamePlayFrame
+	TimeFrame   map[int64]map[string]*model.GamePlayFrame
+	status      Status
 }
 
 func New(ctx context.Context, logger runtime.Logger, db *sql.DB, nk runtime.NakamaModule, match *model.Match, closeFunc func()) *Service {
 	s := &Service{
-		Aid:        match.Aid,
-		Ctx:        ctx,
-		Logger:     logger,
-		Db:         db,
-		Nk:         nk,
-		gut:        make(chan *model.GameMsg, 1024*1024),
-		PlayerTick: map[string]map[int64]*model.GamePlayFrame{},
-		TimeTick:   map[int64]map[string]*model.GamePlayFrame{},
-		status:     Init,
-		match:      match,
-		closeFunc:  closeFunc,
+		Aid:         match.Aid,
+		Ctx:         ctx,
+		Logger:      logger,
+		Db:          db,
+		Nk:          nk,
+		gut:         make(chan *model.GameMsg, 1024*1024),
+		PlayerFrame: map[string]map[int64]*model.GamePlayFrame{},
+		TimeFrame:   map[int64]map[string]*model.GamePlayFrame{},
+		status:      Init,
+		match:       match,
+		closeFunc:   closeFunc,
 	}
 	return s
 }
@@ -124,13 +131,12 @@ func (s *Service) Start(match *model.Match) {
 		switch s.status {
 		case Init:
 			s.initGame()
-			s.set(Ready)
 		case Ready:
 			s.readyGame()
-			s.set(Running)
-		case Running:
+		case Start:
 			s.startGame()
-			s.run()
+		case Running:
+			s.runGame()
 		case Finish:
 			s.finishGame()
 			break
@@ -146,29 +152,25 @@ func (s *Service) Run(msg *model.GameMsg) {
 }
 
 func (s *Service) initGame() {
-	msgs := []*runtime.NotificationSend{}
 	for id, sea := range s.match.Players {
-		tmp := &runtime.NotificationSend{
-			UserID:  id,
-			Subject: "game_init",
-			Content: map[string]interface{}{
-				// todo
-				"data": "",
-			},
-			Code:       0,
-			Sender:     "",
-			Persistent: true,
-		}
-		if ok, err := s.Nk.StreamUserJoin(model.GameStream, s.match.MatchId, "", "", id, sea, false, false, ""); err != nil || !ok {
+		if ok, err := s.Nk.StreamUserJoin(model.StreamGameData, s.match.MatchId, "", "", id, sea, false, false, ""); err != nil || !ok {
 			s.Logger.Error("join failed err:%+v", err)
 			return
 		}
-		msgs = append(msgs, tmp)
 	}
-	if err := s.Nk.NotificationsSend(s.Ctx, msgs); err != nil {
-		s.Logger.Error("initGame err:%+v", err)
-		return
+	s.broadcast(Init.String(), nil)
+	s.set(Ready)
+}
+
+func (s *Service) startGame() {
+	s.startTick = time.Now().Add(time.Second * 5).Unix()
+	s.startTimer = time.NewTimer(time.Second * 5)
+	msg := &struct {
+		StartTick int64
+	}{
+		StartTick: s.startTick,
 	}
+	s.broadcast(Start.String(), msg)
 }
 
 func (s *Service) readyGame() {
@@ -182,9 +184,9 @@ func (s *Service) readyGame() {
 			s.set(Finish)
 			return
 		case <-ticker.C:
-			if len(s.PlayerTick) == len(s.match.Players) {
+			if len(s.PlayerFrame) == len(s.match.Players) {
 				// todo success notify
-				s.set(Running)
+				s.set(Start)
 				return
 			}
 		case msg, closed := <-s.gut:
@@ -196,54 +198,32 @@ func (s *Service) readyGame() {
 	}
 }
 
-func (s *Service) broadcast(subject string, content map[string]interface{}) {
-	msgs := []*runtime.NotificationSend{}
-	for id, _ := range s.match.Players {
-		tmp := &runtime.NotificationSend{
-			UserID:     id,
-			Subject:    subject,
-			Content:    content,
-			Code:       0,
-			Sender:     "",
-			Persistent: true,
-		}
-		msgs = append(msgs, tmp)
-	}
-	if err := s.Nk.NotificationsSend(s.Ctx, msgs); err != nil {
-		s.Logger.Error("%s err:%+v", subject, err)
+func (s *Service) broadcast(subject string, content interface{}) {
+	jstr, _ := json.Marshal(content)
+	if err := s.Nk.StreamSend(model.StreamGameMsg, subject, "", "", string(jstr), nil, true); err != nil {
+		s.Logger.Warn("broadcast %s %+v failed err:%+v", subject, content, err)
 	}
 }
 
 func (s *Service) ready(msg *model.GameMsg) {
-	s.PlayerTick[msg.UserId] = map[int64]*model.GamePlayFrame{}
+	s.PlayerFrame[msg.UserId] = map[int64]*model.GamePlayFrame{}
 	// todo notify
-	s.broadcast("game_ready", map[string]interface{}{
+	s.broadcast(Ready.String(), map[string]interface{}{
 		"player": msg.UserId,
 		"status": s.status,
 	})
 }
 
-func (s *Service) startGame() {
-	s.broadcast("game_start", nil)
+func (s *Service) runGame() {
+	select {
+	case <-s.startTimer.C:
+		s.broadcast(Running.String(), nil)
+	}
+	s.run()
 }
 
 func (s *Service) finishGame() {
-	msgs := []*runtime.NotificationSend{}
-	for id, _ := range s.match.Players {
-		tmp := &runtime.NotificationSend{
-			UserID:     id,
-			Subject:    "game_finish",
-			Content:    nil,
-			Code:       0,
-			Sender:     "",
-			Persistent: false,
-		}
-		msgs = append(msgs, tmp)
-	}
-	if err := s.Nk.NotificationsSend(s.Ctx, msgs); err != nil {
-		s.Logger.Error("finish_game err:%+v", err)
-		return
-	}
+	s.broadcast(Finish.String(), nil)
 }
 
 func (s *Service) isFinish() bool {
@@ -251,7 +231,7 @@ func (s *Service) isFinish() bool {
 }
 
 func (s *Service) finish() {
-	if err := s.Nk.StreamClose(model.GameStream, s.match.MatchId, "", ""); err != nil {
+	if err := s.Nk.StreamClose(model.StreamGameData, s.match.MatchId, "", ""); err != nil {
 		s.Logger.Error("finish StreamClose err:%+v", err)
 	}
 	s.set(Finish)
@@ -280,20 +260,27 @@ func (s *Service) run() {
 }
 
 func (s *Service) stream() {
-	cur := s.TimeTick[s.curTick]
+	cur := s.TimeFrame[s.curTick]
 	jstr, err := json.Marshal(cur)
 	if err != nil {
 		s.Logger.Error("stream Marshal err:%+v", err)
 		return
 	}
-	if err := s.Nk.StreamSend(model.GameStream, s.match.MatchId, "", "", string(jstr), nil, true); err != nil {
+	if err := s.Nk.StreamSend(model.StreamGameData, s.match.MatchId, "", "", string(jstr), nil, true); err != nil {
 		s.Logger.Error("stream StreamSend err:%+v", err)
 	}
 }
 
 func (s *Service) process(msg *model.GameMsg) {
+	playerMp, exist := s.PlayerFrame[msg.UserId]
+	if !exist {
+		return
+	}
+	playerMp[s.curTick] = msg.Data
 	// todo point
 	msg.Point = rand.Int63()%50 + 50
-	s.PlayerTick[msg.UserId][s.curTick] = msg.Data
-	s.TimeTick[s.curTick][msg.UserId] = msg.Data
+	if _, exist := s.TimeFrame[s.curTick]; !exist {
+		s.TimeFrame[s.curTick] = map[string]*model.GamePlayFrame{}
+	}
+	s.TimeFrame[s.curTick][msg.UserId] = msg.Data
 }

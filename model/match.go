@@ -1,7 +1,8 @@
 package model
 
 const (
-	GameStream      = 10
+	StreamGameData  = 10
+	StreamGameMsg   = 11
 	ConfirmDeadline = 30 // 确认时间30s
 )
 

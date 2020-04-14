@@ -38,25 +38,11 @@ func worldEvent(c *fantasy.Claude) {
 		matchId := info["match_id"]
 		matchGroup.ReadyMatch(aid, matchId, userId, sessionID)
 	case event.EventGameReady:
-		// info := c.Evt.Properties
-		userId, ok := c.Ctx.Value(runtime.RUNTIME_CTX_USER_ID).(string)
-		if !ok {
-			// User ID not found in the context.
-			return
-		}
-		sessionID, ok := c.Ctx.Value(runtime.RUNTIME_CTX_SESSION_ID).(string)
-		if !ok {
-			// If session ID is not found, RPC was not called over a connected socket.
-			return
-		}
-		matchId, ok := c.Ctx.Value(runtime.RUNTIME_CTX_MATCH_ID).(string)
-		if !ok {
-			return
-		}
+		info := c.Evt.Properties
 		msg := &model.GameMsg{
-			UserId:    userId,
-			SessionId: sessionID,
-			MatchId:   matchId,
+			UserId:    info["user_id"],
+			SessionId: info["session_id"],
+			MatchId:   info["match_id"],
 			Data:      nil,
 		}
 		gameGroup.Run(msg)

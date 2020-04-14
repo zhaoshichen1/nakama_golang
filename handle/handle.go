@@ -27,6 +27,7 @@ func rpc() {
 	world.RegistGlove("hello", helloHandle)
 	world.RegistGlove("match", matchHandle)
 	world.RegistGlove("match/ready", matchReady)
+	world.RegistGlove("game/ready", gameReady)
 	world.RegistGlove("game/tick", gameTick)
 
 	world.RegistBlade(worldEvent)
