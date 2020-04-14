@@ -15,16 +15,16 @@ import (
 )
 
 var (
-	ser        *service.Service
-	matchGroup *match.Group
-	gameGroup  *game.Group
-	world      = fantasy.New()
+	ser          *service.Service
+	matchManager *match.Manager
+	gameGroup    *game.Group
+	world        = fantasy.New()
 )
 
 func rpc() {
 	// todo
 
-	world.RegistGlove("hello", helloHandle)
+	world.RegistGlove("hello", helloHandle) // 测试接口
 	world.RegistGlove("match", matchHandle)
 	world.RegistGlove("match/ready", matchReady)
 	world.RegistGlove("game/ready", gameReady)
@@ -36,8 +36,10 @@ func rpc() {
 func initService(ctx context.Context, logger runtime.Logger, db *sql.DB, nk runtime.NakamaModule) {
 	rand.Seed(time.Now().Unix())
 	ser = service.New()
-	matchGroup = match.NewGroup()
-	matchGroup.Add(match.New(ctx, logger, db, nk, 223344, "game"))
+
+	matchManager := match.NewMatchManager(ctx)
+	go matchManager.Match() // 异步定时轮询匹配
+
 	gameGroup = game.NewGroup(ctx, logger, db, nk)
 	go gameGroup.Tick()
 	go proxy()
@@ -47,7 +49,7 @@ func proxy() {
 	ticker := time.NewTicker(time.Second)
 	for {
 		select {
-		case m := <-matchGroup.Match:
+		case m := <-matchManager.NewMatch:
 			go gameGroup.Start(m)
 		case <-ticker.C:
 
