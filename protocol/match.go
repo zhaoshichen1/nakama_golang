@@ -3,9 +3,9 @@ package protocol
 import "nakama-golang/model"
 
 type ReqMatchJoin struct {
-	Aid   int64  `json:"aid"`
-	Mid   int64  `json:"mid"`
-	Topic string `json:"topic"`
+	Aid      int64  `json:"aid"`
+	Topic    string `json:"topic"`
+	UserName string `json:"username"`
 }
 
 func (v *ReqMatchJoin) Meta() string {
