@@ -53,6 +53,7 @@ func (this *Manager) Match() {
 		this.mutex.Lock()
 		defer this.mutex.Unlock()
 		for aid, v := range this.Groups { // 每个aid的分组都进行轮询匹配
+
 			playerGroups := v.Match()
 			if len(playerGroups) == 0 {
 				continue
@@ -117,12 +118,16 @@ func (this *Manager) WaitConfirm(mat *model.Match, ch chan *model.PlayerRealTime
 	for {
 		select {
 		case <-ticker.C:
-			for k, v := range mat.Players { // 等待用户请求上报session ID
-				this.logger.Info("match :%v => player:%v ready status:%v", mat.MatchId, k, v)
-				if v == "" {
-					continue
+			if finished := func() bool {
+				for k, v := range mat.Players { // 等待用户请求上报session ID
+					this.logger.Info("match :%v => player:%v ready status:%v", mat.MatchId, k, v)
+					if v == "" {
+						return false
+					}
 				}
-				this.Start(mat)
+				this.Start(mat) // start放到外层
+				return true
+			}(); finished { // 所有人确认完毕
 				return
 			}
 		case <-timer.C: // todo 通知匹配超时
