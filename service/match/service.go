@@ -35,6 +35,7 @@ func (g *Group) Add(s *Service) {
 		for {
 			if v, ok := <-s.Match; ok {
 				g.Match <- v
+				continue
 			}
 			return
 		}
@@ -203,9 +204,9 @@ func (s *Service) ready(mat *model.Match, ch chan *model.PlayerRealTime) {
 				if v == "" {
 					continue
 				}
-				s.Start(mat)
-				return
 			}
+			s.Start(mat)
+			return
 		case <-timer.C:
 			s.logger.Info("match :%v => failed", mat.MatchId)
 			s.Rejoin(mat)
