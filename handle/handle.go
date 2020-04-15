@@ -37,7 +37,7 @@ func initService(ctx context.Context, logger runtime.Logger, db *sql.DB, nk runt
 	rand.Seed(time.Now().Unix())
 	ser = service.New()
 
-	matchManager := match.NewMatchManager(ctx)
+	matchManager = match.NewMatchManager(ctx)
 	go matchManager.Match() // 异步定时轮询匹配
 
 	gameGroup = game.NewGroup(ctx, logger, db, nk)
