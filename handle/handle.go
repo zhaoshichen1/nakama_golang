@@ -22,11 +22,6 @@ var (
 )
 
 func rpc() {
-	// todo
-
-	world.RegistGlove("hello", helloHandle) // 测试接口
-	world.RegistGlove("match", matchHandle)
-	world.RegistGlove("match/ready", matchReady)
 	world.RegistGlove("game/ready", gameReady)
 	world.RegistGlove("game/tick", gameTick)
 
@@ -58,7 +53,6 @@ func proxy() {
 }
 
 func MakeMatch(ctx context.Context, logger runtime.Logger, db *sql.DB, nk runtime.NakamaModule, entries []runtime.MatchmakerEntry) (string, error) {
-
 	for _, e := range entries {
 		logger.Info("Matched user '%s' named '%s'", e.GetPresence().GetUserId(), e.GetPresence().GetUsername())
 		for k, v := range e.GetProperties() {
