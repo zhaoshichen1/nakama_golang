@@ -2,14 +2,19 @@ package handle
 
 import (
 	"encoding/json"
+	"strconv"
+
+	"github.com/heroiclabs/nakama-common/runtime"
 
 	"nakama-golang/fantasy"
 	"nakama-golang/model"
 	"nakama-golang/model/event"
-	"nakama-golang/util"
-
-	"github.com/heroiclabs/nakama-common/runtime"
 )
+
+func ToInt64(str string) int64 {
+	v, _ := strconv.ParseInt(str, 10, 64)
+	return v
+}
 
 func worldEvent(c *fantasy.Claude) {
 	switch c.Event() {
@@ -20,7 +25,7 @@ func worldEvent(c *fantasy.Claude) {
 			return
 		}
 		info := c.Evt.Properties
-		aid := util.ToInt64(info["aid"])
+		aid := ToInt64(info["aid"])
 		matchManager.NewPlayer(aid, []string{userId})
 	case event.EventMatchReady:
 		info := c.Evt.Properties
@@ -34,7 +39,7 @@ func worldEvent(c *fantasy.Claude) {
 			// If session ID is not found, RPC was not called over a connected socket.
 			return
 		}
-		aid := util.ToInt64(info["aid"])
+		aid := ToInt64(info["aid"])
 		matchId := info["match_id"]
 		matchManager.ReadyMatch(aid, matchId, userId, sessionID)
 	case event.EventGameReady:
