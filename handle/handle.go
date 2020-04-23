@@ -57,8 +57,34 @@ func proxy() {
 	}
 }
 
+func MakeMatch(ctx context.Context, logger runtime.Logger, db *sql.DB, nk runtime.NakamaModule, entries []runtime.MatchmakerEntry) (string, error) {
+
+	for _, e := range entries {
+		logger.Info("Matched user '%s' named '%s'", e.GetPresence().GetUserId(), e.GetPresence().GetUsername())
+		for k, v := range e.GetProperties() {
+			logger.Info("Matched on '%s' value '%v'", k, v)
+		}
+	}
+
+	matchId, err := nk.MatchCreate(ctx, "dance_battle", map[string]interface{}{"invited": entries})
+	if err != nil {
+		logger.Error("CreateNewMatch Err %v", err)
+		return "", err
+	}
+	logger.Info("New MatchID ", matchId)
+
+	return matchId, nil
+}
+
 func Init(ctx context.Context, logger runtime.Logger, initializer runtime.Initializer, db *sql.DB, nk runtime.NakamaModule) error {
 	initService(ctx, logger, db, nk)
 	rpc()
+
+	// 注册匹配命中逻辑
+	if err := initializer.RegisterMatchmakerMatched(MakeMatch); err != nil {
+		logger.Error("Unable to register: %v", err)
+		return err
+	}
+
 	return world.Init(initializer)
 }

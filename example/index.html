@@ -1,27 +1,73 @@
 <script src="./nakama-js.umd.js"></script>
 <script>
-    var client = new nakamajs.Client("defaultkey", "nakama-host", 7350);
-    const socket = client.createSocket(false, true);
+    var client = new nakamajs.Client("defaultkey", "127.0.0.1", 7350);
+    const socket01 = client.createSocket(false, true);
+
+    async function f(){
+        const message = { matchmaker_add: {
+                min_count: 2,
+                max_count: 2,
+                query: "*",
+                string_properties: {
+                    region: "europe"
+                },
+                numeric_properties: {
+                    rank: 8
+                }
+            }};
+        var ticket = await socket01.send(message);
+        console.log(ticket.toString());
+    }
 
     client.authenticateCustom({ id:  "test-client-01" })
         .then(session => {
-            return socket.connect(session);
+            return socket01.connect(session);
         }).then(session => {
+            return f()
         }).catch(error => {
             console.log(error);
         });
+
+    socket01.onmatchmakermatched = (matched) => {
+        console.log("Received MatchmakerMatched message: ", matched);
+        console.log("Matched opponents: ", matched.users);
+    };
+    setTimeout("alert(456)", 5000, "did not receive matchmaker matched - timed out.")
 </script>
 
 <script>
-    var client_01 = new nakamajs.Client("defaultkey", "nakama-host", 7350);
+    var client_01 = new nakamajs.Client("defaultkey", "127.0.0.1", 7350);
     const socket_02 = client_01.createSocket(false, true);
+
+    async function f () {
+        const message = { matchmaker_add: {
+                min_count: 2,
+                max_count: 2,
+                query: "*",
+                string_properties: {
+                    region: "europe"
+                },
+                numeric_properties: {
+                    rank: 8
+                }
+            }};
+        var ticket = await socket_02.send(message);
+        console.log(ticket.toString());
+    }
+
+    socket_02.onmatchmakermatched = (matched) => {
+        console.log("Received MatchmakerMatched message: ", matched);
+        console.log("Matched opponents: ", matched.users);
+    };
 
     client_01.authenticateCustom({ id:  "test-client-02" })
         .then(session => {
             return socket_02.connect(session);
         }).then(session => {
-        }).catch(error => {
+            return f()
+    }   ).catch(error => {
             console.log(error);
         });
-</script>
 
+    setTimeout("alert(123)", 5000, "did not receive matchmaker matched - timed out.")
+</script>
