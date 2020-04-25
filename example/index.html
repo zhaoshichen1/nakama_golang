@@ -1,73 +1,104 @@
-<script src="./nakama-js.umd.js"></script>
-<script>
-    var client = new nakamajs.Client("defaultkey", "127.0.0.1", 7350);
-    const socket01 = client.createSocket(false, true);
-
-    async function f(){
-        const message = { matchmaker_add: {
-                min_count: 2,
-                max_count: 2,
-                query: "*",
-                    string_properties: {
-                    name: "name_test1",
-                },
-                numeric_properties: {
-                    rank: 8
-                }
-            }};
-        var ticket = await socket01.send(message);
-        console.log(ticket.toString());
-    }
-
-    client.authenticateCustom({ id:  "test-client-01" })
-        .then(session => {
-            return socket01.connect(session);
-        }).then(session => {
-            return f()
-        }).catch(error => {
-            console.log(error);
+<html>
+    <head>
+    <script src="./nakama-js.umd.js"></script>
+    <script>
+        var showMsg = function(text) {
+            var span = document.createElement("SPAN");
+            var text = document.createTextNode(text);
+            span.appendChild(text);
+            document.getElementById("box").appendChild(span);
+        }
+        class Player {
+            constructor(name) {
+                this.name = name
+                this.client = new nakamajs.Client("defaultkey", "nakama-host", 7350);
+                this.socket = this.client.createSocket(false, true);
+            }
+            connect(callback) {
+                this.client.authenticateCustom({ id:  this.name })
+                    .then(session => {
+                        return this.socket.connect(session);
+                    }).then(session => {
+                        showMsg(this.name + ": connected.");
+                        return callback();
+                    }).catch(error => {
+                        showMsg(this.name + ': error -> ' + error)
+                    });
+            }
+            cancel_match() {
+                const message = {
+                    matchmaker_remove: {
+                        ticket: this.ticket,
+                    }
+                };
+                this.socket.send(message);
+                showMsg(this.name + ": match canceled.");
+                return
+            }
+            async match_game(callback) {
+                var that = this
+                var timeout = setTimeout(function() { that.cancel_match() }, 5000);
+                this.socket.onmatchmakermatched = (matched) => {
+                    this.matched = matched
+                    clearTimeout(timeout);
+                    callback(matched);
+                    showMsg(this.name + ": matched.");
+                };
+                showMsg(this.name + ": matching.");
+                const message = { matchmaker_add: {
+                        min_count: 2,
+                        max_count: 5,
+                        query: "*",
+                        string_properties: {
+                            name: this.name,
+                        },
+                        numeric_properties: {
+                            rank: 10,
+                        }
+                    }};
+                this.ticket = await this.socket.send(message);
+            }
+            join_game() {
+                this.socket.onmatchdata = (matchdata) => {
+                    showMsg(this.name + ": on match data.");
+                };
+                this.socket.onmatchpresence = (matchpresence) => {
+                    showMsg(this.name + ": on match presence.");
+                };
+                const message = {
+                    match_join: {
+                        token: this.matched.token,
+                    }
+                };
+                this.socket.send(message);
+            }
+            send_match_data() {
+                var data = { "move": {"dir": "left", "steps": 4} };
+                var opCode = 10000;
+                this.socket.send({ match_data_send: { match_token: this.matched.token, op_code: opCode, data: data } });
+            }
+        }
+    </script>
+    <script>
+        const client_01 = new Player("client_01")
+        client_01.connect(function() {
+            client_01.match_game(function(matched) {
+                client_01.join_game();
+                setInterval(function(){ client_01.send_match_data(); }, 3000);
+            });
         });
 
-    socket01.onmatchmakermatched = (matched) => {
-        console.log("Received MatchmakerMatched message: ", matched);
-        console.log("Matched opponents: ", matched.users);
-    };
-    setTimeout("alert(456)", 5000, "did not receive matchmaker matched - timed out.")
-</script>
-
-<script>
-    var client_01 = new nakamajs.Client("defaultkey", "127.0.0.1", 7350);
-    const socket_02 = client_01.createSocket(false, true);
-
-    async function f () {
-        const message = { matchmaker_add: {
-                min_count: 2,
-                max_count: 2,
-                query: "*",
-                string_properties: {
-                    name: "name_test2"
-                },
-                numeric_properties: {
-                    rank: 8
-                }
-            }};
-        var ticket = await socket_02.send(message);
-        console.log(ticket.toString());
-    }
-
-    socket_02.onmatchmakermatched = (matched) => {
-        console.log("Received MatchmakerMatched message: ", matched);
-        console.log("Matched opponents: ", matched.users);
-    };
-
-    client_01.authenticateCustom({ id:  "test-client-02" })
-        .then(session => {
-            return socket_02.connect(session);
-        }).then(session => {
-            return f()
-    }   ).catch(error => {
-            console.log(error);
-        });
-
-    setTimeout("alert(123)", 5000, "did not receive matchmaker matched - timed out.")
-</script>
+        const client_02 = new Player("client_02")
+        client_02.connect(function() {
+            client_02.match_game(function(matched) {
+                client_02.join_game()
+                setInterval(function(){ client_02.send_match_data(); }, 3000);
+            });
+        })
+    </script>
+    <style type="text/css">span{ display:block;}</style>
+    </head>
+    <body>
+        <div id="box"></div>
+    </body>
+</html>
